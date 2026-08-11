@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Self-Attendance</title>
+<meta name="description" content="A daily register for one student.">
+<meta name="theme-color" content="#FBFBFA">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Attendance">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#FBFBFA; --surface:#FFFFFF; --text:#32302C; --text-2:#7C756B; --text-3:#ABA49A;
+    --line:#EDEAE4; --line-2:#E2DED6; --hover:#F4F2EF;
+    --green:#3F7D5C; --clay:#B0563F; --clay-bg:#F6E7E1; --blue:#2F6FB5;
+    --ui:"Inter",system-ui,-apple-system,sans-serif;
+    --serif:"Newsreader",Georgia,serif;
+    --mono:"IBM Plex Mono",ui-monospace,monospace;
+    --r:6px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);color:var(--text);font-family:var(--ui);
+    font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
+    padding:calc(40px + env(safe-area-inset-top)) 20px 90px;
+  }
+  .page{max-width:720px;margin:0 auto}
+  .b{opacity:0;transform:translateY(10px);animation:rise .55s cubic-bezier(.2,.7,.3,1) forwards}
+  @keyframes rise{to{opacity:1;transform:none}}
+  .icon{
+    width:42px;height:42px;border-radius:9px;display:grid;place-items:center;
+    background:var(--surface);border:1px solid var(--line-2);margin-bottom:14px;
+    box-shadow:0 1px 2px rgba(50,48,44,.05);
+  }
+  h1{font-family:var(--serif);font-weight:500;font-size:clamp(32px,7vw,44px);
+     line-height:1.1;letter-spacing:-.015em;margin:0 0 4px}
+  h1 em{font-style:italic;color:var(--text-2)}
+  .sub{color:var(--text-2);font-size:15px;margin:0 0 20px;max-width:48ch}
+  .props{display:flex;flex-wrap:wrap;gap:8px 22px;padding-bottom:22px;border-bottom:1px solid var(--line)}
+  .prop{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2)}
+  .prop b{font-family:var(--mono);font-weight:500;color:var(--text);font-size:12.5px}
+  .prop .dot{width:6px;height:6px;border-radius:50%;background:var(--text-3)}
+  section{margin-top:30px}
+  .sec-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;background:none;border:none;
+            padding:2px 6px 2px 0;cursor:pointer;color:inherit;font:inherit;border-radius:var(--r);width:100%}
+  .sec-head:hover .tri{color:var(--text-2)}
+  .tri{color:var(--text-3);font-size:10px;line-height:1;width:14px;
+       transition:transform .22s ease,color .2s;transform:rotate(90deg)}
+  section.closed .tri{transform:rotate(0deg)}
+  .sec-title{font-family:var(--serif);font-size:19px;font-weight:500;letter-spacing:-.01em}
+  .sec-note{margin-left:auto;font-size:12px;color:var(--text-3);font-family:var(--mono)}
+  .body{display:grid;grid-template-rows:1fr;transition:grid-template-rows .3s ease}
+  section.closed .body{grid-template-rows:0fr}
+  .body>div{overflow:hidden;min-height:0}
+  .rows{list-style:none;margin:0;padding:0}
+  .row{display:flex;align-items:center;gap:11px;width:100%;padding:8px 8px 8px 6px;
+       border-radius:var(--r);border:none;background:none;font:inherit;color:inherit;
+       text-align:left;cursor:pointer;transition:background .14s}
+  .row:hover{background:var(--hover)}
+  .check{flex:none;width:17px;height:17px;border-radius:3.5px;border:1.4px solid var(--line-2);
+         background:var(--surface);display:grid;place-items:center;
+         transition:background .2s ease,border-color .2s ease}
+  .check svg{width:11px;height:11px;overflow:visible}
+  .check path{fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;
+              stroke-dasharray:14;stroke-dashoffset:14;transition:stroke-dashoffset .26s ease .04s}
+  .row[aria-pressed="true"] .check{background:var(--green);border-color:var(--green)}
+  .row[aria-pressed="true"] .check path{stroke-dashoffset:0}
+  .row-name{flex:1;transition:color .25s}
+  .row[aria-pressed="true"] .row-name{color:var(--text-3)}
+  .kill{flex:none;border:none;background:none;color:var(--text-3);cursor:pointer;font-size:16px;
+        line-height:1;padding:2px 5px;border-radius:4px;opacity:0;transition:opacity .15s}
+  .row:hover .kill,.kill:focus-visible{opacity:1}
+  .kill:hover{background:var(--clay-bg);color:var(--clay)}
+  .callout{display:flex;gap:11px;align-items:flex-start;background:var(--hover);
+           border:1px solid var(--line);border-radius:var(--r);padding:13px 15px;
+           margin:14px 0 4px;font-size:14px;color:var(--text-2)}
+  .callout .glyph{font-family:var(--serif);font-size:17px;line-height:1.2;color:var(--text)}
+  .callout b{color:var(--text);font-weight:500}
+  .note{width:100%;font:inherit;font-size:14.5px;color:var(--text);background:none;
+        border:1px solid transparent;border-radius:var(--r);padding:8px 8px 8px 6px;
+        margin-top:6px;resize:vertical;transition:background .16s,border-color .16s}
+  .note::placeholder{color:var(--text-3)}
+  .note:hover{background:var(--hover)}
+  .note:focus{outline:none;background:var(--surface);border-color:var(--line-2)}
+  .bar{display:flex;align-items:center;gap:4px;margin:2px 0 10px;flex-wrap:wrap}
+  .tab{font:inherit;font-size:13px;color:var(--text-2);background:none;border:none;
+       padding:5px 9px;border-radius:5px;cursor:pointer;transition:background .14s,color .14s}
+  .tab:hover{background:var(--hover)}
+  .tab[aria-pressed="true"]{color:var(--text);background:var(--hover);font-weight:500}
+  .spacer{flex:1}
+  .step{font:inherit;font-size:14px;color:var(--text-2);background:none;border:1px solid transparent;
+        width:26px;height:26px;border-radius:5px;cursor:pointer;transition:background .14s}
+  .step:hover:not(:disabled){background:var(--hover)}
+  .step:disabled{opacity:.32;cursor:not-allowed}
+  .stamp{font-family:var(--mono);font-size:12px;color:var(--text-2);min-width:112px;text-align:center}
+  .table-wrap{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12px}
+  th,td{padding:0;text-align:center;white-space:nowrap}
+  thead th{height:32px;font-weight:500;color:var(--text-3);font-family:var(--mono);
+           font-size:10.5px;border-bottom:1px solid var(--line)}
+  thead th.today{color:var(--clay)}
+  .name-col{text-align:left;font-family:var(--ui);font-size:13.5px;color:var(--text);padding:0 14px;
+            position:sticky;left:0;background:var(--surface);z-index:2;
+            border-right:1px solid var(--line);min-width:150px}
+  tbody tr{height:36px}
+  tbody tr:not(:last-child) td{border-bottom:1px solid var(--line)}
+  .cell{width:24px;cursor:pointer}
+  .cell i{display:block;width:11px;height:11px;border-radius:3px;margin:0 auto;background:var(--line);
+          animation:pop .34s cubic-bezier(.2,1.4,.4,1) backwards;transition:transform .16s}
+  @keyframes pop{from{opacity:0;transform:scale(.4)}}
+  .cell.p i{background:var(--green)}
+  .cell.a i{background:var(--clay-bg);box-shadow:inset 0 0 0 1.2px #E8CFC6}
+  .cell.sel i{box-shadow:0 0 0 2px var(--surface),0 0 0 3.4px var(--text-3)}
+  .cell:hover i{transform:scale(1.25)}
+  .meter{padding:0 14px 0 10px;border-left:1px solid var(--line);min-width:132px}
+  .meter .val{font-family:var(--mono);font-size:11.5px;color:var(--text-2);
+              display:flex;justify-content:space-between;gap:8px;margin-bottom:3px}
+  .meter .val b{font-weight:500}
+  .meter .val .ok{color:var(--green)}
+  .meter .val .low{color:var(--clay)}
+  .track{position:relative;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+  .fill{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--green);width:0;
+        transition:width .7s cubic-bezier(.2,.7,.3,1)}
+  .fill.low{background:#D69A85}
+  .notch{position:absolute;left:75%;top:-2px;bottom:-2px;width:1px;background:var(--text-3);opacity:.55}
+  .months{display:grid;gap:2px}
+  .mrow{display:grid;grid-template-columns:104px 1fr 46px;align-items:center;gap:12px;
+        padding:7px 8px;border-radius:var(--r);cursor:pointer;transition:background .14s}
+  .mrow:hover{background:var(--hover)}
+  .mrow .mname{font-size:13.5px;color:var(--text-2)}
+  .mrow.cur .mname{color:var(--text);font-weight:500}
+  .mrow .mval{font-family:var(--mono);font-size:12px;text-align:right;color:var(--text-2)}
+  .mbar{height:6px;border-radius:3px;background:var(--line);overflow:hidden;position:relative}
+  .mbar span{position:absolute;inset:0 auto 0 0;border-radius:3px;background:var(--text);
+             opacity:.75;width:0;transition:width .8s cubic-bezier(.2,.7,.3,1)}
+  .addbar{display:none;gap:8px;margin-top:8px}
+  .addbar.on{display:flex}
+  .addbar input{flex:1;font:inherit;font-size:14px;padding:8px 11px;border-radius:var(--r);
+                border:1px solid var(--line-2);background:var(--surface);color:var(--text)}
+  .addbar input:focus{outline:none;border-color:var(--text-3)}
+  .btn{font:inherit;font-size:13px;padding:8px 14px;border-radius:var(--r);cursor:pointer;
+       background:var(--text);color:var(--bg);border:1px solid var(--text)}
+  .btn:hover{opacity:.88}
+  .saverow{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+  .save{display:inline-flex;align-items:center;gap:8px;transition:background .2s,color .2s,border-color .2s}
+  .save svg{width:12px;height:12px;overflow:visible}
+  .save svg path{fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;
+                 stroke-dasharray:14;stroke-dashoffset:14;transition:stroke-dashoffset .3s ease}
+  .save.done{background:none;color:var(--green);border-color:#CFE0D6}
+  .save.done svg path{stroke-dashoffset:0}
+  .save.done:hover{background:#EFF5F1;opacity:1}
+  .saveStamp{font-family:var(--mono);font-size:11.5px;color:var(--text-3)}
+  .empty{padding:22px 14px;color:var(--text-3);font-size:14px}
+  footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+         display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+         font-size:12.5px;color:var(--text-3)}
+  footer button{font:inherit;background:none;border:none;color:var(--text-3);cursor:pointer;padding:0}
+  footer button:hover{color:var(--text)}
+  #saved{opacity:0;transition:opacity .3s;color:var(--green)}
+  #saved.on{opacity:1}
+  :focus-visible{outline:2px solid var(--blue);outline-offset:2px;border-radius:4px}
+  @media (max-width:560px){
+    body{padding:calc(26px + env(safe-area-inset-top)) 14px 70px}
+    .name-col{min-width:126px;font-size:12.5px}
+    .meter{min-width:112px}
+    .mrow{grid-template-columns:82px 1fr 42px;gap:9px}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none !important;transition:none !important}
+    .b{opacity:1;transform:none}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="b" style="animation-delay:.02s">
+    <div class="icon" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+        <rect x="2.5" y="3.5" width="17" height="15" rx="2.5" stroke="#7C756B" stroke-width="1.3"/>
+        <path d="M7 3.5v-2M15 3.5v-2" stroke="#7C756B" stroke-width="1.3" stroke-linecap="round"/>
+        <path d="M6.6 12.4l2.6 2.6 5.4-6" stroke="#3F7D5C" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h1>Self-Attendance <em>register</em></h1>
+    <p class="sub">Mark the day before you sleep. Not to feel good about it — just so the sheet is honest. A skipped day counts as absent, same as class.</p>
+    <div class="props">
+      <span class="prop"><span class="dot"></span>Started <b id="pStart">—</b></span>
+      <span class="prop"><span class="dot"></span>On the sheet <b id="pDays">—</b></span>
+      <span class="prop"><span class="dot"></span>Running <b id="pRun">—</b></span>
+    </div>
+  </header>
+
+  <section id="secDay" class="b" style="animation-delay:.1s">
+    <button class="sec-head" data-toggle="secDay">
+      <span class="tri">▶</span><span class="sec-title">Today</span>
+      <span class="sec-note" id="tally">—</span>
+    </button>
+    <div class="body"><div>
+      <div class="bar">
+        <button class="step" id="dPrev" aria-label="Previous day">←</button>
+        <span class="stamp" id="dLabel">—</span>
+        <button class="step" id="dNext" aria-label="Next day">→</button>
+      </div>
+      <ul class="rows" id="rows"></ul>
+      <div class="addbar" id="addbar">
+        <input type="text" id="newHabit" maxlength="44" placeholder="Add something you want to show up for">
+        <button class="btn" id="addBtn">Add</button>
+      </div>
+      <div class="callout"><span class="glyph">¶</span><span id="calloutText">—</span></div>
+      <textarea class="note" id="note" rows="2" placeholder="One line: what actually happened today?"></textarea>
+      <div class="saverow">
+        <button class="btn save" id="saveBtn">
+          <svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.2 6.3 4.7 8.8 9.8 3.3"/></svg>
+          <span id="saveLabel">Save today</span>
+        </button>
+        <span class="saveStamp" id="saveStamp"></span>
+      </div>
+    </div></div>
+  </section>
+
+  <section id="secGrid" class="b" style="animation-delay:.18s">
+    <button class="sec-head" data-toggle="secGrid">
+      <span class="tri">▶</span><span class="sec-title">The register</span>
+      <span class="sec-note">75% is the bar</span>
+    </button>
+    <div class="body"><div>
+      <div class="bar">
+        <button class="tab" id="scopeMonth" aria-pressed="true">This month</button>
+        <button class="tab" id="scopeAll" aria-pressed="false">All time</button>
+        <span class="spacer"></span>
+        <button class="step" id="mPrev" aria-label="Previous month">←</button>
+        <span class="stamp" id="mLabel">—</span>
+        <button class="step" id="mNext" aria-label="Next month">→</button>
+      </div>
+      <div class="table-wrap" id="tableWrap"></div>
+    </div></div>
+  </section>
+
+  <section id="secTrend" class="b" style="animation-delay:.26s">
+    <button class="sec-head" data-toggle="secTrend">
+      <span class="tri">▶</span><span class="sec-title">Month by month</span>
+      <span class="sec-note">the only number worth watching</span>
+    </button>
+    <div class="body"><div><div class="months" id="months"></div></div></div>
+  </section>
+
+  <footer>
+    <span>
+      <button id="editToggle">Edit the list</button> ·
+      <button id="exportBtn">Back up</button> ·
+      <button id="importBtn">Restore</button> ·
+      <button id="wipe">Clear everything</button>
+    </span>
+    <span id="saved">Saved</span>
+  </footer>
+  <input type="file" id="importFile" accept="application/json,.json" hidden>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var KEY="selfattendance:v1";
+  var DEFAULTS=["Phone down before 12:30","Out of bed before 8:30","Went to class","One hour of code","Gym","Ate three real meals"];
+  var MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  var DAYS=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+  var data={habits:[],days:{},start:null};
+  var sel=new Date(), gridMonth=new Date(), scope="month", editing=false, saveTimer=null, dirty=false;
+
+  function key(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+  function fromKey(s){var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2]);}
+  function today(){var d=new Date();return new Date(d.getFullYear(),d.getMonth(),d.getDate());}
+  function uid(){return "h"+Math.random().toString(36).slice(2,8);}
+  function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  function $(id){return document.getElementById(id);}
+
+  /* ---------- storage: this device, via localStorage ---------- */
+  function load(){
+    try{
+      var raw=localStorage.getItem(KEY);
+      if(raw) data=JSON.parse(raw);
+    }catch(e){ /* first run, or storage blocked */ }
+    if(!data||!Array.isArray(data.habits)||!data.habits.length){
+      data={habits:DEFAULTS.map(function(n){return{id:uid(),name:n};}),days:{},start:null};
+    }
+    if(!data.days) data.days={};
+  }
+  function save(){
+    try{ localStorage.setItem(KEY,JSON.stringify(data)); flash("Saved",false); }
+    catch(e){ flash("Couldn't save — private browsing blocks storage",true); }
+  }
+  function flash(msg,stick){
+    var s=$("saved"); s.textContent=msg; s.classList.add("on");
+    clearTimeout(saveTimer);
+    if(!stick) saveTimer=setTimeout(function(){s.classList.remove("on");},1500);
+  }
+  function rec(k,make){ if(!data.days[k]&&make) data.days[k]={marks:{},note:""}; return data.days[k]; }
+  function touchStart(k){ if(!data.start||k<data.start) data.start=k; }
+
+  function heldDays(from,to){
+    if(!data.start) return [];
+    var s=fromKey(data.start),t=today(),out=[];
+    var a=from>s?from:s, b=to<t?to:t;
+    for(var d=new Date(a);d<=b;d.setDate(d.getDate()+1)) out.push(key(d));
+    return out;
+  }
+  function monthDays(y,m){ return heldDays(new Date(y,m,1),new Date(y,m+1,0)); }
+  function pct(id,range){
+    var days = range==="all" ? heldDays(new Date(1970,0,1),today())
+                             : monthDays(gridMonth.getFullYear(),gridMonth.getMonth());
+    if(!days.length) return null;
+    var p=0; days.forEach(function(k){ if(data.days[k]&&data.days[k].marks[id]) p++; });
+    return {p:p,n:days.length,v:Math.round(p/days.length*100)};
+  }
+
+  function renderDay(){
+    var k=key(sel), r=data.days[k], isToday=k===key(today());
+    $("dLabel").textContent = isToday ? "Today"
+      : DAYS[sel.getDay()].slice(0,3)+", "+sel.getDate()+" "+MONTHS[sel.getMonth()].slice(0,3);
+    $("dNext").disabled = sel>=today();
+
+    var ul=$("rows"); ul.innerHTML="";
+    data.habits.forEach(function(h){
+      var on=!!(r&&r.marks[h.id]);
+      var li=document.createElement("li");
+      var b=document.createElement("button");
+      b.className="row"; b.type="button";
+      b.setAttribute("aria-pressed",on?"true":"false");
+      b.innerHTML='<span class="check"><svg viewBox="0 0 12 12"><path d="M2.2 6.3 4.7 8.8 9.8 3.3"/></svg></span><span class="row-name"></span>';
+      b.querySelector(".row-name").textContent=h.name;
+      b.addEventListener("click",function(){toggle(h.id);});
+      li.appendChild(b);
+      if(editing){
+        var x=document.createElement("button");
+        x.className="kill"; x.type="button"; x.textContent="×";
+        x.setAttribute("aria-label","Remove "+h.name);
+        x.addEventListener("click",function(e){e.stopPropagation();removeHabit(h.id);});
+        b.appendChild(x);
+      }
+      ul.appendChild(li);
+    });
+
+    var done=data.habits.filter(function(h){return r&&r.marks[h.id];}).length;
+    $("tally").textContent=done+"/"+data.habits.length;
+    $("calloutText").innerHTML=line(done,data.habits.length,isToday);
+    $("note").value=(r&&r.note)||"";
+    renderSave();
+    renderProps();
+  }
+  function renderSave(){
+    var r=data.days[key(sel)];
+    var done=!!(r&&r.savedAt)&&!dirty;
+    $("saveBtn").classList.toggle("done",done);
+    $("saveLabel").textContent=done?"Day saved":"Save today";
+    if(r&&r.savedAt){
+      var t=new Date(r.savedAt);
+      $("saveStamp").textContent="Signed off "+t.toLocaleTimeString([], {hour:"numeric",minute:"2-digit"});
+    } else {
+      $("saveStamp").textContent="";
+    }
+  }
+  function saveDay(){
+    var k=key(sel);
+    rec(k,true).savedAt=new Date().toISOString();
+    touchStart(k);
+    dirty=false;
+    renderDay(); renderGrid(); renderTrend(); save();
+  }
+  function line(done,total,isToday){
+    if(!total) return "Nothing on the list yet. Add one thing, not six.";
+    if(!data.start&&isToday) return "Mark one row and the register opens up.";
+    if(done===0) return "Nothing marked. <b>An empty day is still data</b> — leave it honest and start again tomorrow.";
+    if(done===total) return "Full attendance. <b>Don't chase this every day</b> — the trend is what counts, not the perfect day.";
+    if(done===1) return "One row is a real start. <b>Same row tomorrow</b> beats a new one.";
+    return "<b>"+done+" of "+total+"</b> today. Above half is a working day, not a wasted one.";
+  }
+  function renderProps(){
+    if(!data.start){ $("pStart").textContent="—"; $("pDays").textContent="—"; $("pRun").textContent="—"; return; }
+    var s=fromKey(data.start);
+    $("pStart").textContent=s.getDate()+" "+MONTHS[s.getMonth()].slice(0,3)+" "+s.getFullYear();
+    $("pDays").textContent=heldDays(new Date(1970,0,1),today()).length+" days";
+    var run=0,d=today();
+    while(true){
+      var r=data.days[key(d)];
+      if(!(r&&data.habits.some(function(h){return r.marks[h.id];}))) break;
+      run++; d.setDate(d.getDate()-1);
+    }
+    $("pRun").textContent=run+" day"+(run===1?"":"s");
+  }
+  function toggle(id){
+    var k=key(sel), r=rec(k,true);
+    r.marks[id]=!r.marks[id]; touchStart(k); dirty=true;
+    renderDay(); renderGrid(); renderTrend(); save();
+  }
+  function removeHabit(id){
+    data.habits=data.habits.filter(function(h){return h.id!==id;});
+    renderDay(); renderGrid(); renderTrend(); save();
+  }
+
+  function renderGrid(){
+    var t=today(), y=gridMonth.getFullYear(), m=gridMonth.getMonth();
+    $("mLabel").textContent=MONTHS[m].slice(0,3)+" "+y;
+    $("mNext").disabled=(y===t.getFullYear()&&m===t.getMonth());
+
+    var host=$("tableWrap");
+    if(!data.habits.length){ host.innerHTML='<p class="empty">No rows yet. Add something you want to show up for.</p>'; return; }
+    var n=new Date(y,m+1,0).getDate(), selK=key(sel), tK=key(t);
+
+    var h='<table><thead><tr><th class="name-col"></th>';
+    for(var i=1;i<=n;i++){
+      var dk=key(new Date(y,m,i));
+      h+='<th'+(dk===tK?' class="today"':'')+'>'+i+'</th>';
+    }
+    h+='<th class="meter"></th></tr></thead><tbody>';
+
+    data.habits.forEach(function(hb,ri){
+      h+='<tr><td class="name-col">'+esc(hb.name)+'</td>';
+      for(var i=1;i<=n;i++){
+        var dk=key(new Date(y,m,i));
+        var counted=data.start&&dk>=data.start&&dk<=tK;
+        var cls="cell", lab="not counted";
+        if(data.days[dk]&&data.days[dk].marks[hb.id]){ cls+=" p"; lab="present"; }
+        else if(counted){ cls+=" a"; lab="absent"; }
+        if(dk===selK) cls+=" sel";
+        h+='<td class="'+cls+'" data-d="'+dk+'" title="'+i+" "+MONTHS[m].slice(0,3)+' · '+lab+'">'
+          +'<i style="animation-delay:'+((i*7+ri*22)/1000).toFixed(3)+'s"></i></td>';
+      }
+      var s=pct(hb.id,scope), v=s?s.v:0, ok=s&&s.v>=75;
+      h+='<td class="meter"><div class="val"><span>'+(s?s.p+"/"+s.n:"—")+'</span>'
+        +'<b class="'+(s?(ok?"ok":"low"):"")+'">'+(s?s.v+"%":"—")+'</b></div>'
+        +'<div class="track"><div class="fill'+(ok?"":" low")+'" data-w="'+v+'"></div><div class="notch"></div></div></td></tr>';
+    });
+    h+="</tbody></table>";
+    host.innerHTML=h;
+
+    requestAnimationFrame(function(){
+      Array.prototype.forEach.call(host.querySelectorAll(".fill"),function(f){ f.style.width=f.dataset.w+"%"; });
+    });
+    Array.prototype.forEach.call(host.querySelectorAll(".cell"),function(c){
+      c.addEventListener("click",function(){
+        var d=fromKey(c.dataset.d);
+        if(d>today()) return;
+        sel=d; dirty=false; renderDay(); renderGrid();
+      });
+    });
+  }
+
+  function renderTrend(){
+    var host=$("months");
+    if(!data.start||!data.habits.length){
+      host.innerHTML='<p class="empty">Once a few days are marked, each month gets a score here.</p>'; return;
+    }
+    var s=fromKey(data.start), t=today(), h="", cur=new Date(s.getFullYear(),s.getMonth(),1), rows=[];
+    while(cur<=t){
+      var days=monthDays(cur.getFullYear(),cur.getMonth());
+      var total=days.length*data.habits.length, p=0;
+      days.forEach(function(k){
+        var r=data.days[k]; if(!r) return;
+        data.habits.forEach(function(hb){ if(r.marks[hb.id]) p++; });
+      });
+      rows.push({y:cur.getFullYear(),m:cur.getMonth(),v:total?Math.round(p/total*100):0});
+      cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);
+    }
+    rows.reverse().forEach(function(r){
+      var isCur=(r.y===gridMonth.getFullYear()&&r.m===gridMonth.getMonth());
+      h+='<div class="mrow'+(isCur?" cur":"")+'" data-y="'+r.y+'" data-m="'+r.m+'">'
+       +'<span class="mname">'+MONTHS[r.m].slice(0,3)+" "+r.y+'</span>'
+       +'<span class="mbar"><span data-w="'+r.v+'"></span></span>'
+       +'<span class="mval">'+r.v+'%</span></div>';
+    });
+    host.innerHTML=h;
+    requestAnimationFrame(function(){
+      Array.prototype.forEach.call(host.querySelectorAll(".mbar span"),function(b){ b.style.width=b.dataset.w+"%"; });
+    });
+    Array.prototype.forEach.call(host.querySelectorAll(".mrow"),function(r){
+      r.addEventListener("click",function(){
+        gridMonth=new Date(+r.dataset.y,+r.dataset.m,1);
+        renderGrid(); renderTrend();
+      });
+    });
+  }
+
+  /* ---------- backup / restore ---------- */
+  function exportData(){
+    var blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+    var a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);
+    a.download="self-attendance-"+key(today())+".json";
+    a.click();
+    setTimeout(function(){URL.revokeObjectURL(a.href);},1000);
+    flash("Backed up",false);
+  }
+  function importData(file){
+    var fr=new FileReader();
+    fr.onload=function(){
+      try{
+        var next=JSON.parse(fr.result);
+        if(!next||!Array.isArray(next.habits)) throw new Error("shape");
+        if(!confirm("Replace what's on this device with the backup file?")) return;
+        data=next; if(!data.days) data.days={};
+        sel=new Date(); gridMonth=new Date();
+        renderDay(); renderGrid(); renderTrend(); save();
+      }catch(e){ flash("That file isn't a register backup",true); }
+    };
+    fr.onerror=function(){ flash("Couldn't read that file",true); };
+    fr.readAsText(file);
+  }
+
+  /* ---------- wiring ---------- */
+  Array.prototype.forEach.call(document.querySelectorAll("[data-toggle]"),function(b){
+    b.addEventListener("click",function(){ $(b.dataset.toggle).classList.toggle("closed"); });
+  });
+  function step(n){
+    var d=new Date(sel); d.setDate(d.getDate()+n);
+    if(d>today()) return;
+    sel=d; gridMonth=new Date(sel.getFullYear(),sel.getMonth(),1); dirty=false;
+    renderDay(); renderGrid(); renderTrend();
+  }
+  $("dPrev").onclick=function(){step(-1);};
+  $("dNext").onclick=function(){step(1);};
+  $("mPrev").onclick=function(){gridMonth=new Date(gridMonth.getFullYear(),gridMonth.getMonth()-1,1);renderGrid();renderTrend();};
+  $("mNext").onclick=function(){gridMonth=new Date(gridMonth.getFullYear(),gridMonth.getMonth()+1,1);renderGrid();renderTrend();};
+  function setScope(s){
+    scope=s;
+    $("scopeMonth").setAttribute("aria-pressed",s==="month");
+    $("scopeAll").setAttribute("aria-pressed",s==="all");
+    renderGrid();
+  }
+  $("scopeMonth").onclick=function(){setScope("month");};
+  $("scopeAll").onclick=function(){setScope("all");};
+
+  var noteTimer=null;
+  $("note").addEventListener("input",function(){
+    var k=key(sel); rec(k,true).note=this.value; touchStart(k); dirty=true; renderSave();
+    clearTimeout(noteTimer); noteTimer=setTimeout(save,600);
+  });
+  $("editToggle").onclick=function(){
+    editing=!editing;
+    $("addbar").classList.toggle("on",editing);
+    this.textContent=editing?"Done editing":"Edit the list";
+    renderDay();
+  };
+  function addHabit(){
+    var i=$("newHabit"), v=i.value.trim();
+    if(!v) return;
+    data.habits.push({id:uid(),name:v}); i.value="";
+    renderDay(); renderGrid(); renderTrend(); save();
+  }
+  $("addBtn").onclick=addHabit;
+  $("newHabit").addEventListener("keydown",function(e){ if(e.key==="Enter") addHabit(); });
+  $("saveBtn").onclick=saveDay;
+  $("exportBtn").onclick=exportData;
+  $("importBtn").onclick=function(){ $("importFile").click(); };
+  $("importFile").addEventListener("change",function(){ if(this.files[0]) importData(this.files[0]); this.value=""; });
+  $("wipe").onclick=function(){
+    if(!confirm("This deletes every mark and note on this device. Back up first if you want to keep it. Start over?")) return;
+    data={habits:DEFAULTS.map(function(n){return{id:uid(),name:n};}),days:{},start:null};
+    sel=new Date(); gridMonth=new Date();
+    renderDay(); renderGrid(); renderTrend(); save();
+  };
+
+  load(); renderDay(); renderGrid(); renderTrend();
+
+  if("serviceWorker" in navigator && location.protocol==="https:"){
+    window.addEventListener("load",function(){
+      navigator.serviceWorker.register("./sw.js").catch(function(){});
+    });
+  }
+})();
+</script>
+</body>
+</html>
